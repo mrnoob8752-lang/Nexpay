@@ -1,157 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#5b35c9"><title>NEXPAY — Preview</title>
-<style>
-:root{--p:#5b35c9;--p2:#7a5be0;--bg:#f5f3fb;--ink:#201b35;--muted:#817b91;--line:#e9e5f2;--green:#159b68}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
-button,input{font:inherit}button{cursor:pointer;border:0}.app{max-width:460px;margin:auto;min-height:100vh;background:var(--bg);padding-bottom:84px}
-header{background:linear-gradient(135deg,#4c27b8,#8062e8);color:white;padding:22px 19px 25px;border-radius:0 0 25px 25px}
-.top{display:flex;justify-content:space-between;align-items:center}.brand{font-size:22px;font-weight:900;letter-spacing:1px}.brand span{color:#d8ceff}.iconbtn{background:#ffffff22;color:white;border:1px solid #ffffff35;border-radius:12px;padding:9px 11px}
-.greet{margin-top:23px;font-size:14px;color:#e8e1ff}.balance{font-size:34px;font-weight:800;margin:4px 0}.sub{font-size:12px;color:#e2dbff}
-.quick{display:flex;gap:10px;margin-top:20px}.quick button{flex:1;background:white;color:var(--p);padding:12px 5px;border-radius:13px;font-weight:700}
-main{padding:18px}.sectionhead{display:flex;justify-content:space-between;align-items:center;margin:18px 0 11px}.sectionhead h3{margin:0;font-size:17px}.link{color:var(--p);background:none;font-weight:700}
-.card{background:white;border:1px solid var(--line);border-radius:17px;padding:16px;margin-bottom:12px;box-shadow:0 5px 18px #33205c08}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.stat{background:white;border:1px solid var(--line);border-radius:15px;padding:14px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:20px;margin-top:5px}
-.plan{display:flex;justify-content:space-between;gap:8px;align-items:center}.plan h4{margin:0 0 4px}.plan p{margin:0;color:var(--muted);font-size:12px}.pill{background:#eee9ff;color:var(--p);padding:5px 9px;border-radius:20px;font-size:11px;font-weight:800}
-.btn{background:var(--p);color:white;border-radius:12px;padding:11px 15px;font-weight:750}.btn.light{background:#eee9ff;color:var(--p)}.btn.full{width:100%;margin-top:10px}.btn:disabled{opacity:.45;cursor:not-allowed}
-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(460px,100%);display:flex;background:white;border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
-nav button{flex:1;background:white;color:#918ba0;font-size:10px;padding:5px 0}nav button b{display:block;font-size:19px;margin-bottom:2px}nav button.active{color:var(--p);font-weight:800}
-.page{display:none}.page.active{display:block}.title{font-size:22px;font-weight:850;margin:5px 0 14px}.muted{color:var(--muted)}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.field{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;margin:7px 0 12px;background:#fff}.notice{background:#fff7e6;border:1px solid #ffe2a8;color:#795414;padding:12px;border-radius:12px;font-size:12px;margin:12px 0}
-.transaction{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}.transaction:last-child{border:0}.positive{color:var(--green);font-weight:800}
-.refcode{background:#f2effb;padding:13px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;font-weight:800;letter-spacing:1px}
-.avatar{width:38px;height:38px;border-radius:13px;background:#eee9ff;color:var(--p);display:grid;place-items:center;font-weight:900}
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#201b35;color:#fff;padding:11px 16px;border-radius:12px;display:none;z-index:10;font-size:13px;max-width:90%;text-align:center}
-.small{font-size:12px}.adminrow{display:flex;gap:8px;flex-wrap:wrap}
-#authGate{position:fixed;inset:0;background:linear-gradient(145deg,#4c27b8,#8062e8);z-index:50;display:none;align-items:center;justify-content:center;padding:22px;overflow:auto}
-.authbox{width:min(420px,100%);background:#fff;border-radius:24px;padding:25px;box-shadow:0 20px 60px #21104c55}
-.authbrand{font-size:27px;font-weight:950;color:var(--p);text-align:center;letter-spacing:1px}.authsub{text-align:center;color:var(--muted);margin:4px 0 20px}.authbox h2{margin:8px 0 5px;font-size:22px}.authbox .field{margin:6px 0 12px}.authswitch{background:none;color:var(--p);font-weight:800;padding:10px}.authwarning{font-size:11px;color:#795414;background:#fff7e6;padding:10px;border-radius:10px;margin-top:12px}
-</style></head>
-<body><div id="authGate"><div class="authbox"><div class="authbrand">NEX<span style="color:#201b35">PAY</span></div><div class="authsub">Earn More. Grow More.</div><div id="authForm"></div><div id="authMessage" role="alert" aria-live="polite" style="display:none;background:#fff0f0;color:#a32121;border:1px solid #ffd0d0;padding:10px 12px;border-radius:10px;margin-top:10px;font-size:13px"></div><div class="authwarning">Preview account only. This prototype stores preview credentials on this device and is not secure. Do not use a real password or real personal information. No real-money features are enabled.</div></div></div><div class="app" id="mainApp">
-<header>
- <div class="top"><div class="brand">NEX<span>PAY</span></div><button class="iconbtn" onclick="toast('Notifications: You are viewing preview mode.')">♧</button></div>
- <div class="greet" id="welcomeText">Welcome back 👋</div><div class="balance" id="headerBalance">₹0.00</div><div class="sub">PREVIEW WALLET BALANCE · SIMULATED ONLY</div>
- <div class="quick"><button onclick="go('wallet')">＋ Add money</button><button onclick="go('withdraw')">↗ Withdraw</button><button onclick="go('plans')">☆ Plans</button></div>
-</header>
-<main>
-<section id="home" class="page active">
- <div class="sectionhead"><h3>Overview</h3><span class="pill">PREVIEW ACCOUNT</span></div>
- <div class="grid"><div class="stat"><small>Today's preview rewards</small><strong id="today">₹0</strong></div><div class="stat"><small>Referral rewards</small><strong id="refTotal">₹0</strong></div><div class="stat"><small>Active preview plans</small><strong id="activeCount">0</strong></div><div class="stat"><small>Total preview earnings</small><strong id="earned">₹0</strong></div></div>
- <div class="sectionhead"><h3>Explore plans</h3><button class="link" onclick="go('plans')">View all</button></div><div id="homePlans"></div>
- <div class="sectionhead"><h3>Recent activity</h3><button class="link" onclick="go('history')">See all</button></div><div class="card" id="recent"><p class="muted small">No activity yet. Try a preview interaction.</p></div>
- <div class="notice">This is a visual/product preview. All balances, plan activations, rewards and withdrawals are simulated. No money is collected or paid.</div>
-</section>
-<section id="plans" class="page"><div class="title">Choose a plan</div><p class="muted small">Illustrative plan cards only. Activation changes preview data and does not represent a real investment.</p><div id="allPlans"></div></section>
-<section id="active" class="page"><div class="title">My active plans</div><div id="activePlans"></div></section>
-<section id="referrals" class="page"><div class="title">Invite & earn</div><div class="card"><div class="row"><div><div class="muted small">Your referral code</div><div class="refcode" style="margin-top:8px">NEXPREVIEW25 <button class="link" onclick="copyCode()">Copy</button></div></div><div class="avatar">↗</div></div><button class="btn full" onclick="shareInvite()">Invite friends</button></div><div class="grid"><div class="stat"><small>Invited friends</small><strong id="invites">0</strong></div><div class="stat"><small>Preview referral rewards</small><strong id="refPageTotal">₹0</strong></div></div><div class="notice">Referral rewards are simulated in this preview. No real referral commissions are enabled.</div><div class="card"><b>How it works</b><p class="muted small">Share your code with friends. This preview does not register referrals or issue payments.</p></div></section>
-<section id="wallet" class="page"><div class="title">My wallet</div><div class="card"><div class="muted small">Available preview balance</div><div style="font-size:30px;font-weight:850;margin:5px 0" id="walletBalance">₹0.00</div><div class="row"><button class="btn light" onclick="previewAdd()">＋ Add preview funds</button><button class="btn" onclick="go('withdraw')">Withdraw</button></div></div><div class="notice">Add preview funds only updates the local preview. It does not accept a payment.</div><div class="sectionhead"><h3>Wallet activity</h3></div><div class="card" id="walletActivity"></div></section>
-<section id="withdraw" class="page"><div class="title">Withdraw</div><div class="card"><div class="muted small">Available preview balance</div><strong style="font-size:27px" id="withdrawBalance">₹0.00</strong><label class="small">Amount (₹)</label><input class="field" id="withdrawAmount" type="number" min="1" placeholder="Enter preview amount"><label class="small">UPI ID (preview only)</label><input class="field" id="upi" placeholder="name@bank"><button class="btn full" onclick="requestWithdraw()">Submit preview withdrawal</button><p class="muted small">A simulated request will appear in history. No bank transfer occurs.</p></div></section>
-<section id="history" class="page"><div class="title">Transaction history</div><div class="card" id="historyList"><p class="muted small">No transactions yet.</p></div></section>
-<section id="profile" class="page">
- <div class="row" style="margin:5px 0 14px"><div class="title" style="margin:0">My profile</div><button class="btn light" onclick="go('help')" aria-label="Open Help & Support">? Help</button></div>
- <div class="card"><div class="row"><div class="row"><div class="avatar">DU</div><div><b id="profileName">Preview User</b><div class="muted small" id="profileEmail">preview@nexpay.local</div></div></div><span class="pill">PREVIEW</span></div><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><span>Personal details</span><button class="link" onclick="toast('Profile editing will be added in the next build.')">Edit</button></div><div class="row" style="margin-top:17px"><span>Notifications</span><button class="link" onclick="toast('Preview notifications are enabled.')">Manage</button></div><div class="row" style="margin-top:17px"><span>Help & support</span><button class="link" onclick="toast('Support centre coming soon.')">Open</button></div><div class="row" style="margin-top:17px"><span>Privacy & terms</span><button class="link" onclick="toast('Legal pages will be added before launch.')">View</button></div><button class="btn light full" onclick="logout()">Log out</button></div></section>
-<section id="help" class="page">
- <div class="title">Help & support</div>
- <div class="card"><div class="row"><div><b>How can we help?</b><p class="muted small">Find answers or contact the NEXPAY support team.</p></div><div class="avatar">?</div></div></div>
- <div class="sectionhead"><h3>Frequently asked questions</h3></div>
- <div class="card"><b>How do I explore a plan?</b><p class="muted small">Open Plans, choose a preview plan and tap “Try preview”. No payment is collected.</p></div>
- <div class="card"><b>Where can I see my activity?</b><p class="muted small">Open Transaction History to see simulated wallet activity and preview withdrawal requests.</p></div>
- <div class="card"><b>Are withdrawals real?</b><p class="muted small">No. This prototype does not connect to a bank or UPI provider. All balances and requests are simulated.</p></div>
- <div class="card"><b>Need more help?</b><p class="muted small">Contact our support team on Telegram.</p><button class="btn full" onclick="contactTelegram()">Contact us on Telegram</button><p class="muted small" id="telegramStatus" style="margin-bottom:0">Telegram contact username will be added after you share it.</p></div>
- <div class="notice">Never share your password, OTP, UPI PIN or banking credentials with anyone claiming to be support.</div>
-</section>
-<section id="admin" class="page"><div class="title">Admin overview</div><div class="notice">Local preview admin panel. No real users, deposits, payouts or personal data are connected.</div><div class="grid"><div class="stat"><small>Preview users</small><strong>1</strong></div><div class="stat"><small>Preview plan activations</small><strong id="adminPlans">0</strong></div><div class="stat"><small>Withdrawal requests</small><strong id="adminWithdrawals">0</strong></div><div class="stat"><small>Preview activity records</small><strong id="adminRecords">0</strong></div></div><div class="card"><b>Admin actions</b><div class="adminrow" style="margin-top:12px"><button class="btn light" onclick="toast('User management screen is a future milestone.')">Manage users</button><button class="btn light" onclick="go('history')">View transactions</button><button class="btn light" onclick="toast('Plan configuration is locked in this preview.')">Manage plans</button><button class="btn light" onclick="toast('No real withdrawals can be approved in preview mode.')">Review withdrawals</button></div></div></section>
-</main>
-<nav>
-<button class="active" data-page="home" onclick="go('home')"><b>⌂</b>Home</button>
-<button data-page="plans" onclick="go('plans')"><b>▦</b>Plans</button>
-<button data-page="active" onclick="go('active')"><b>◷</b>My plans</button>
-<button data-page="referrals" onclick="go('referrals')"><b>♧</b>Refer</button>
-<button data-page="profile" onclick="go('profile')"><b>☺</b>Profile</button>
-</nav><div class="toast" id="toast"></div></div>
-<script>
-let currentUser=null, authMode='login';
-function showAuth(mode='login'){
-  authMode=mode;
-  const msg=document.getElementById('authMessage');
-  if(msg){msg.style.display='none';msg.textContent=''}
-  const box=document.getElementById('authForm');
-  box.innerHTML=mode==='register'
-    ? `<h2>Create account</h2><p class="muted small">Create your NEXPAY account.</p><label class="small">Full name</label><input class="field" id="authName" placeholder="Your name" autocomplete="name"><label class="small">Email</label><input class="field" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"><label class="small">Password</label><input class="field" id="authPass" type="password" placeholder="At least 6 characters" autocomplete="new-password"><label class="small">Confirm password</label><input class="field" id="authConfirm" type="password" placeholder="Repeat password" autocomplete="new-password"><button class="btn full" onclick="registerPreview()">Create account</button><button class="authswitch" onclick="showAuth('login')">Already registered? Log in</button>`
-    : mode==='forgot'
-    ? `<h2>Reset password</h2><p class="muted small">We'll email you a password-reset link.</p><label class="small">Registered email</label><input class="field" id="authEmail" type="email" placeholder="you@example.com"><button class="btn full" onclick="resetPreviewPassword()">Send reset email</button><button class="authswitch" onclick="showAuth('login')">Back to login</button>`
-    : `<h2>Welcome back</h2><p class="muted small">Log in to your NEXPAY account.</p><label class="small">Email</label><input class="field" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"><label class="small">Password</label><input class="field" id="authPass" type="password" placeholder="Your password" autocomplete="current-password"><button class="btn full" onclick="loginPreview()">Log in</button><div class="row"><button class="authswitch" onclick="showAuth('forgot')">Forgot password?</button><button class="authswitch" onclick="showAuth('register')">Create account</button></div>`;
-  document.getElementById('authGate').style.display='flex';
-  document.getElementById('mainApp').style.display='none';
-}
-function enterApp(user){
-  currentUser=user;
-  document.getElementById('authGate').style.display='none';
-  document.getElementById('mainApp').style.display='block';
-  document.getElementById('welcomeText').textContent='Welcome back, '+user.name+' 👋';
-  document.getElementById('profileName').textContent=user.name;
-  document.getElementById('profileEmail').textContent=user.email;
-}
-const amounts=[500,1000,2000,3000,4000,5000,7000,8000,9000,10000];
-let balance=0, plans=[], tx=[], withdrawals=0, referral=0;
-const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
-function toast(s){const gate=document.getElementById('authGate'),msg=document.getElementById('authMessage');if(gate&&gate.style.display==='flex'&&msg){msg.textContent=s;msg.style.display='block';return}let t=document.getElementById('toast');t.textContent=s;t.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>t.style.display='none',2600)}
-function go(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));render();window.scrollTo(0,0)}
-function planCard(a){return `<div class="card"><div class="plan"><div><h4>${fmt(a)} plan</h4><p>7-day illustrative preview · Multiple activations allowed</p><p class="muted">Sample schedule: ₹${(a/5).toLocaleString('en-IN')} per day</p></div><div style="text-align:right"><span class="pill">PREVIEW</span><div style="margin-top:9px"><button class="btn" onclick="activate(${a})">Try preview</button></div></div></div></div>`}
-function activate(a){plans.push({amount:a,id:Date.now(),day:1});tx.unshift({label:'Preview plan activated · '+fmt(a),amount:0,type:'info',date:new Date().toLocaleString()});toast('Preview plan activated. No money was taken.');render()}
-function previewAdd(){balance+=500;tx.unshift({label:'Preview wallet credit',amount:500,type:'in',date:new Date().toLocaleString()});toast('₹500 preview funds added to preview.');render()}
-function requestWithdraw(){let a=Number(document.getElementById('withdrawAmount').value),u=document.getElementById('upi').value.trim();if(!a||a<=0)return toast('Enter a valid amount.');if(a>balance)return toast('Preview balance is insufficient.');if(!u.includes('@'))return toast('Enter a sample UPI ID, e.g. preview@bank.');balance-=a;withdrawals++;tx.unshift({label:'Preview withdrawal request · '+u,amount:-a,type:'out',date:new Date().toLocaleString()});document.getElementById('withdrawAmount').value='';toast('Preview request recorded. No bank transfer was made.');go('history')}
-function contactTelegram(){toast('Telegram support link is not configured yet. Share your Telegram username to add it.')}
-function copyCode(){if(navigator.clipboard)navigator.clipboard.writeText('NEXPREVIEW25').then(()=>toast('Referral code copied.')).catch(()=>toast('Your code: NEXPREVIEW25'));else toast('Your code: NEXPREVIEW25')}
-function shareInvite(){if(navigator.share)navigator.share({title:'NEXPAY preview',text:'Try this NEXPAY app preview. Preview code: NEXPREVIEW25'}).catch(()=>{});else toast('Share text: Try NEXPAY preview · Code NEXPREVIEW25')}
-function render(){document.getElementById('headerBalance').textContent=fmt(balance);document.getElementById('walletBalance').textContent=fmt(balance);document.getElementById('withdrawBalance').textContent=fmt(balance);document.getElementById('today').textContent=fmt(0);document.getElementById('refTotal').textContent=fmt(referral);document.getElementById('refPageTotal').textContent=fmt(referral);document.getElementById('activeCount').textContent=plans.length;document.getElementById('earned').textContent=fmt(0);document.getElementById('invites').textContent='0';document.getElementById('adminPlans').textContent=plans.length;document.getElementById('adminWithdrawals').textContent=withdrawals;document.getElementById('adminRecords').textContent=tx.length;
-document.getElementById('homePlans').innerHTML=amounts.slice(0,3).map(planCard).join('');document.getElementById('allPlans').innerHTML=amounts.map(planCard).join('');
-document.getElementById('activePlans').innerHTML=plans.length?plans.map(p=>`<div class="card"><div class="row"><div><b>${fmt(p.amount)} preview plan</b><p class="muted small">Activation #${p.id.toString().slice(-5)} · Day 1 of 7</p></div><span class="pill">ACTIVE PREVIEW</span></div></div>`).join(''):'<div class="card muted">You have no active preview plans. Explore plans to try one.</div>';
-let list=tx.length?tx.map(t=>`<div class="transaction"><div><b>${t.label}</b><div class="muted small">${t.date}</div></div><div class="${t.type==='in'?'positive':''}">${t.amount?fmt(t.amount):'—'}</div></div>`).join(''):'<p class="muted small">No transactions yet.</p>';document.getElementById('historyList').innerHTML=list;document.getElementById('walletActivity').innerHTML=list;document.getElementById('recent').innerHTML=tx.length?list.split('</div>').slice(0,2).join('</div>')+'</div>':'<p class="muted small">No activity yet. Try a preview interaction.</p>'}
-render();
-</script><script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signOut,
-  onAuthStateChanged,
-  updateProfile
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-
-const firebaseConfig = {apiKey: "AIzaSyDzd0nzddHPhdJ_VuSsmIDNL2kB_maBdKg",
-  authDomain: "nexpay-8bf2d.firebaseapp.com",
-  projectId: "nexpay-8bf2d",
-  storageBucket: "nexpay-8bf2d.firebasestorage.app",
-  messagingSenderId: "710262578852",
-  appId: "1:710262578852:web:25ff78ef186b4a96edd031"
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const firebaseAuth = getAuth(firebaseApp);
-  function firebaseErrorMessage(error) {
-  switch (error.code) {
-    case 'auth/email-already-in-use':
-      return 'This email is already registered. Please log in.';
-    case 'auth/invalid-email':
-      return 'Please enter a valid email address.';
-    case 'auth/weak-password':
-      return 'Password must be at least 6 characters.';
-    case 'auth/invalid-credential':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return 'Email or password is incorrect.';
-    case 'auth/too-many-requests':
-      return 'Too many attempts. Try again later.';
-    default:
-      return 'Could not complete this action. Please try again.';
-  }
-}
-
-window.registerPreview = async function() {
   const name = document.getElementById('authName').value.trim();
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
   const pass = document.getElementById('authPass').value;
@@ -172,8 +18,10 @@ window.registerPreview = async function() {
       firebaseAuth, email, pass
     );
     await updateProfile(credential.user, { displayName: name });
-    enterApp({ name, email });
-    toast('Account created successfully.');
+    await sendEmailVerification(credential.user);
+    await credential.user.reload();
+    enterApp(credential.user);
+    toast('Account created. Verification email sent. Check your inbox.');
   } catch (error) {
     toast(firebaseErrorMessage(error));
   }
@@ -192,14 +40,24 @@ window.loginPreview = async function() {
     );
 
     const user = credential.user;
-    enterApp({
-      name: user.displayName || user.email.split('@')[0],
-      email: user.email
-    });
+    await user.reload();
+    enterApp(user);
   } catch (error) {
     toast(firebaseErrorMessage(error));
   }
 };
+  window.resendVerification = async function(){
+    const user=firebaseAuth.currentUser;
+    if(!user)return toast('Please log in again.');
+    try{await sendEmailVerification(user);toast('Verification email sent. Check inbox and spam.');}
+    catch(error){toast(firebaseErrorMessage(error));}
+  };
+  window.refreshVerification = async function(){
+    const user=firebaseAuth.currentUser;
+    if(!user)return toast('Please log in again.');
+    try{await reload(user);enterApp(user);toast(user.emailVerified?'Email verified successfully.':'Still not verified. Open the email link first.');}
+    catch(error){toast(firebaseErrorMessage(error));}
+  };
   window.resetPreviewPassword = async function() {
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
 
@@ -221,12 +79,10 @@ window.loginPreview = async function() {
     toast(firebaseErrorMessage(error));
   }
 };
-  onAuthStateChanged(firebaseAuth, (user) => {
+  onAuthStateChanged(firebaseAuth, async (user) => {
   if (user) {
-    enterApp({
-      name: user.displayName || user.email.split('@')[0],
-      email: user.email
-    });
+    await user.reload();
+    enterApp(user);
   } else {
     showAuth('login');
   }
