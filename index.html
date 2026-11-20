@@ -71,7 +71,8 @@ nav button{flex:1;background:white;color:#918ba0;font-size:10px;padding:5px 0}na
 <button data-page="profile" onclick="go('profile')"><b>☺</b>Profile</button>
 </nav><div class="toast" id="toast"></div></div>
 <script>
-let currentUser=null, authMode='login';
+window.isVerifiedAdmin = false;
+let currentUser=null, authMode='login', adminCheckSeq=0;
 function showAuth(mode='login'){
   authMode=mode;
   const msg=document.getElementById('authMessage');
@@ -85,8 +86,10 @@ function showAuth(mode='login'){
   document.getElementById('authGate').style.display='flex';
   document.getElementById('mainApp').style.display='none';
 }
-function enterApp(user){
+async function enterApp(user){
+  const seq=++adminCheckSeq;
   currentUser=user;
+  window.isVerifiedAdmin=false;
   document.getElementById('authGate').style.display='none';
   document.getElementById('mainApp').style.display='block';
   const displayName=user.displayName || user.name || (user.email||'').split('@')[0];
@@ -94,6 +97,20 @@ function enterApp(user){
   document.getElementById('profileName').textContent=displayName;
   document.getElementById('profileEmail').textContent=user.email;
   updateVerificationUI(user);
+  if(document.getElementById('admin').classList.contains('active')){
+    go('profile');
+  }
+  if(typeof window.checkAdminAccess==='function'){
+    const verified=await window.checkAdminAccess(user);
+    if(seq!==adminCheckSeq || currentUser!==user)return;
+    window.isVerifiedAdmin=verified===true;
+  }else{
+    window.isVerifiedAdmin=false;
+  }
+  updateVerificationUI(user);
+  if(!window.isVerifiedAdmin && document.getElementById('admin').classList.contains('active')){
+    go('profile');
+  }
 }
 function updateVerificationUI(user){
   const status=document.getElementById('emailVerifyStatus');
@@ -102,14 +119,14 @@ function updateVerificationUI(user){
   if(!status||!user)return;
   status.textContent=user.emailVerified?'Verified ✓':'Not verified yet. Verify your email to continue.';
   btn.style.display=user.emailVerified?'none':'block';
-  admin.style.display=(user.emailVerified && user.email.toLowerCase()==='pruthvirajavhad55@gmail.com')?'block':'none';
+  admin.style.display=(user.emailVerified && window.isVerifiedAdmin===true)?'block':'none';
 }
 
 const amounts=[500,1000,2000,3000,4000,5000,7000,8000,9000,10000];
 let balance=0, plans=[], tx=[], withdrawals=0, referral=0;
 const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
 function toast(s){const gate=document.getElementById('authGate'),msg=document.getElementById('authMessage');if(gate&&gate.style.display==='flex'&&msg){msg.textContent=s;msg.style.display='block';return}let t=document.getElementById('toast');t.textContent=s;t.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>t.style.display='none',2600)}
-function go(id){if(id==='admin' && !(currentUser && currentUser.emailVerified && currentUser.email.toLowerCase()==='pruthvirajavhad55@gmail.com')){toast('Admin access requires the verified admin account.');id='profile'}document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));render();window.scrollTo(0,0)}
+function go(id){if(id==='admin' && !(currentUser && currentUser.emailVerified && window.isVerifiedAdmin===true)){toast('Admin access denied.');id='profile'}document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));render();window.scrollTo(0,0)}
 function planCard(a){return `<div class="card"><div class="plan"><div><h4>${fmt(a)} plan</h4><p>7-day illustrative preview · Multiple activations allowed</p><p class="muted">Sample schedule: ₹${(a/5).toLocaleString('en-IN')} per day</p></div><div style="text-align:right"><span class="pill">PREVIEW</span><div style="margin-top:9px"><button class="btn" onclick="activate(${a})">Try preview</button></div></div></div></div>`}
 function activate(a){plans.push({amount:a,id:Date.now(),day:1});tx.unshift({label:'Preview plan activated · '+fmt(a),amount:0,type:'info',date:new Date().toLocaleString()});toast('Preview plan activated. No money was taken.');render()}
 function previewAdd(){balance+=500;tx.unshift({label:'Preview wallet credit',amount:500,type:'in',date:new Date().toLocaleString()});toast('₹500 preview funds added to preview.');render()}
@@ -144,9 +161,41 @@ const firebaseConfig = {apiKey: "AIzaSyDzd0nzddHPhdJ_VuSsmIDNL2kB_maBdKg",
   appId: "1:710262578852:web:25ff78ef186b4a96edd031"
 };
 
+const ADMIN_API_URL = "https://nexpay-admin-api.pruthvirajavhad55.workers.dev/admin/check";
+
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
-  function firebaseErrorMessage(error) {
+
+window.checkAdminAccess = async function(user) {
+  if (!user || !user.emailVerified) {
+    return false;
+  }
+
+  try {
+    const idToken = await user.getIdToken(true);
+
+    const response = await fetch(ADMIN_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + idToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    return data && data.isAdmin === true;
+
+  } catch (error) {
+    return false;
+  }
+};
+
+function firebaseErrorMessage(error) {
   switch (error.code) {
     case 'auth/email-already-in-use':
       return 'This email is already registered. Please log in.';
@@ -188,7 +237,7 @@ window.registerPreview = async function() {
     await updateProfile(credential.user, { displayName: name });
     await sendEmailVerification(credential.user);
     await credential.user.reload();
-    enterApp(credential.user);
+    await enterApp(credential.user);
     toast('Account created. Verification email sent. Check your inbox.');
   } catch (error) {
     toast(firebaseErrorMessage(error));
@@ -209,7 +258,7 @@ window.loginPreview = async function() {
 
     const user = credential.user;
     await user.reload();
-    enterApp(user);
+    await enterApp(user);
   } catch (error) {
     toast(firebaseErrorMessage(error));
   }
@@ -223,7 +272,7 @@ window.loginPreview = async function() {
   window.refreshVerification = async function(){
     const user=firebaseAuth.currentUser;
     if(!user)return toast('Please log in again.');
-    try{await reload(user);enterApp(user);toast(user.emailVerified?'Email verified successfully.':'Still not verified. Open the email link first.');}
+    try{await reload(user);await enterApp(user);toast(user.emailVerified?'Email verified successfully.':'Still not verified. Open the email link first.');}
     catch(error){toast(firebaseErrorMessage(error));}
   };
   window.resetPreviewPassword = async function() {
@@ -241,6 +290,11 @@ window.loginPreview = async function() {
   }
 };
   window.logout = async function() {
+  adminCheckSeq++;
+  window.isVerifiedAdmin = false;
+  currentUser = null;
+  const adminBtn = document.getElementById('adminEntryBtn');
+  if (adminBtn) adminBtn.style.display = 'none';
   try {
     await signOut(firebaseAuth);
   } catch (error) {
@@ -250,8 +304,13 @@ window.loginPreview = async function() {
   onAuthStateChanged(firebaseAuth, async (user) => {
   if (user) {
     await user.reload();
-    enterApp(user);
+    await enterApp(user);
   } else {
+    adminCheckSeq++;
+    window.isVerifiedAdmin = false;
+    currentUser = null;
+    const adminBtn = document.getElementById('adminEntryBtn');
+    if (adminBtn) adminBtn.style.display = 'none';
     showAuth('login');
   }
 });
