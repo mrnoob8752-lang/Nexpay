@@ -1,4 +1,4 @@
-// NEXPAY API update**
+/* NEXPAY API update
  * NEXPAY Admin API Worker
  * Cloudflare Worker + D1 + Firebase Authentication
  *
