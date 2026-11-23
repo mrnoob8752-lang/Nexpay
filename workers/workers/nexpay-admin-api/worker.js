@@ -269,3 +269,5 @@ export default {
     }
   }
 };
+
+// Deployment trigger: configuration update applied in Cloudflare Workers Builds.
