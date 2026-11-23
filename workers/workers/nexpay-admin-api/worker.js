@@ -129,6 +129,16 @@ async function handle(request, env) {
     const transactions = await listRows(env.DB, "SELECT id,type,amount_paise,status,reference,created_at FROM transactions WHERE user_uid=? ORDER BY created_at DESC LIMIT 100", user.uid);
     return response({ transactions, balance_paise: await balancePaise(env.DB, user.uid) });
   }
+  if (path === "/user/payment/settings" && method === "GET") {
+    const upiId = String(env.UPI_ID || "").trim();
+    const qrUrl = String(env.UPI_QR_URL || "").trim();
+    return response({
+      configured: !!upiId,
+      upi_id: upiId,
+      upi_name: String(env.UPI_NAME || "").trim(),
+      qr_url: /^https:\/\//i.test(qrUrl) ? qrUrl : ""
+    });
+  }
   if (path === "/user/payment/submit" && method === "POST") {
     const b = await bodyJson(request);
     const amount = integer(b.amount_paise, "amount_paise", 1, 100000000);
