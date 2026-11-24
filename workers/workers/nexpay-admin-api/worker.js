@@ -149,8 +149,6 @@ async function handle(request, env) {
     const amount = integer(b.amount_paise, "amount_paise", 1, 100000000);
     const reference = String(b.payment_reference || b.reference || "").trim();
     if (reference.length < 4 || reference.length > 120) fail("Enter a valid payment reference.");
-    const duplicate = await env.DB.prepare("SELECT id FROM payment_orders WHERE LOWER(payment_reference)=LOWER(?) LIMIT 1").bind(reference).first();
-    if (duplicate) fail("This UPI transaction reference has already been submitted. Contact admin if you believe this is an error.", 409);
     let planId = b.plan_id ? String(b.plan_id) : null;
     if (planId) {
       const plan = await env.DB.prepare("SELECT id,price_paise,status FROM plans WHERE id=?").bind(planId).first();
@@ -158,12 +156,21 @@ async function handle(request, env) {
       if (Number(plan.price_paise) !== amount) fail("Payment amount does not match the selected plan.");
     }
     const orderId = uid(), txId = uid();
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO payment_orders (id,user_uid,plan_id,amount_paise,payment_reference) VALUES (?,?,?,?,?)")
-        .bind(orderId, user.uid, planId, amount, reference),
-      env.DB.prepare("INSERT INTO transactions (id,user_uid,type,amount_paise,status,reference) VALUES (?,?, 'deposit', ?, 'pending', ?)")
-        .bind(txId, user.uid, amount, planId ? "plan:" + orderId : orderId)
+    const paymentResults = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO payment_orders (id,user_uid,plan_id,amount_paise,payment_reference)
+        SELECT ?,?,?,?,? WHERE NOT EXISTS (
+          SELECT 1 FROM payment_orders WHERE LOWER(payment_reference)=LOWER(?)
+        )`)
+        .bind(orderId, user.uid, planId, amount, reference, reference),
+      env.DB.prepare(`INSERT INTO transactions (id,user_uid,type,amount_paise,status,reference)
+        SELECT ?,?, 'deposit', ?, ?, ? WHERE EXISTS (
+          SELECT 1 FROM payment_orders WHERE id=? AND user_uid=?
+        )`)
+        .bind(txId, user.uid, amount, "pending", planId ? "plan:" + orderId : orderId, orderId, user.uid)
     ]);
+    if (!paymentResults[0]?.meta?.changes) {
+      fail("This UPI transaction reference has already been submitted. Contact admin if you believe this is an error.", 409);
+    }
     return response({ ok: true, order_id: orderId, transaction_id: txId, status: "pending",
       message: "Payment reference submitted for manual review." }, 201);
   }
@@ -250,17 +257,24 @@ async function handle(request, env) {
     if (!tx) fail("Matching pending transaction not found.",409);
     const note = String(b.admin_note || b.note || "").slice(0,500);
     const ops = [
-      env.DB.prepare("UPDATE payment_orders SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(status,note,orderId),
-      env.DB.prepare("UPDATE transactions SET status=? WHERE id=? AND status='pending'").bind(status,tx.id)
+      env.DB.prepare("UPDATE payment_orders SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'")
+        .bind(status,note,orderId)
     ];
     if (status === "approved" && order.plan_id) {
       const plan = await env.DB.prepare("SELECT duration_days FROM plans WHERE id=?").bind(order.plan_id).first();
       if (!plan) fail("Plan no longer exists.",409);
       const start = new Date(), end = new Date(start.getTime() + Number(plan.duration_days) * 86400000);
-      ops.push(env.DB.prepare("INSERT INTO plan_activations (id,user_uid,plan_id,status,started_at,expires_at) VALUES (?,?,?,'active',?,?)")
+      ops.push(env.DB.prepare(`INSERT INTO plan_activations (id,user_uid,plan_id,status,started_at,expires_at)
+        SELECT ?,?,?, 'active',?,? WHERE changes()=1`)
         .bind(uid(),order.user_uid,order.plan_id,start.toISOString(),end.toISOString()));
     }
-    await env.DB.batch(ops);
+    ops.push(env.DB.prepare(`UPDATE transactions SET status=? WHERE id=? AND status='pending'
+      AND EXISTS (SELECT 1 FROM payment_orders WHERE id=? AND status=?)`)
+      .bind(status,tx.id,orderId,status));
+    const reviewResults = await env.DB.batch(ops);
+    if (!reviewResults[0]?.meta?.changes || !reviewResults[reviewResults.length-1]?.meta?.changes) {
+      fail("This payment was already reviewed or could not be updated. Refresh the payment list.",409);
+    }
     await logAdmin(env.DB,user,"payment_"+status,"payment_order",orderId,{note});
     return response({ok:true,status});
   }
@@ -278,10 +292,16 @@ async function handle(request, env) {
     if (withdrawal.status !== "pending") fail("This withdrawal request has already been reviewed.",409);
     const tx = await env.DB.prepare("SELECT id FROM transactions WHERE user_uid=? AND type='withdrawal' AND reference=? AND status='pending'").bind(withdrawal.user_uid,"withdrawal:"+requestId).first();
     if (!tx) fail("Matching pending wallet transaction was not found. No changes made.",409);
-    await env.DB.batch([
-      env.DB.prepare("UPDATE withdrawal_requests SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(status,note || null,requestId),
-      env.DB.prepare("UPDATE transactions SET status=? WHERE id=? AND status='pending'").bind(status === "paid" ? "completed" : "rejected",tx.id)
+    const reviewResults = await env.DB.batch([
+      env.DB.prepare("UPDATE withdrawal_requests SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'")
+        .bind(status,note || null,requestId),
+      env.DB.prepare(`UPDATE transactions SET status=? WHERE id=? AND status='pending'
+        AND changes()=1`)
+        .bind(status === "paid" ? "completed" : "rejected",tx.id)
     ]);
+    if (!reviewResults[0]?.meta?.changes || !reviewResults[1]?.meta?.changes) {
+      fail("This withdrawal was already reviewed or could not be updated. Refresh the withdrawal list.",409);
+    }
     await logAdmin(env.DB,user,"withdrawal_"+status,"withdrawal",requestId,{amount_paise:withdrawal.amount_paise,note});
     return response({ok:true,status,message:status==="paid"?"Withdrawal marked paid; wallet balance deducted.":"Withdrawal rejected; reserved wallet balance released."});
   }
