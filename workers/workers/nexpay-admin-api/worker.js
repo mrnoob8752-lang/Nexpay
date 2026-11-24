@@ -51,6 +51,9 @@ async function ensureSchema(db) {
   )`).run();
   await db.prepare("CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_uid, created_at)").run();
   await db.prepare("CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status, created_at)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS referral_codes (user_uid TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS referral_attributions (referred_uid TEXT PRIMARY KEY, referrer_uid TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','rewarded')), qualifying_order_id TEXT UNIQUE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, rewarded_at TEXT)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_referral_attributions_referrer ON referral_attributions(referrer_uid, created_at)").run();
 }
 async function authenticate(request, env) {
   const auth = request.headers.get("authorization") || "";
@@ -120,6 +123,25 @@ async function handle(request, env) {
   if (path.startsWith("/admin/")) requireAdmin(user, env);
   else await saveUser(env.DB, user);
 
+  if (path === "/user/referrals" && method === "GET") {
+    const code = "NX" + user.uid.replace(/[^a-z0-9]/gi,"").slice(0,10).toUpperCase();
+    await env.DB.prepare("INSERT OR IGNORE INTO referral_codes (user_uid,code) VALUES (?,?)").bind(user.uid,code).run();
+    const own = await env.DB.prepare("SELECT code FROM referral_codes WHERE user_uid=?").bind(user.uid).first();
+    const stats = await env.DB.prepare("SELECT COUNT(*) AS invited, SUM(CASE WHEN status='rewarded' THEN 1 ELSE 0 END) AS qualified FROM referral_attributions WHERE referrer_uid=?").bind(user.uid).first();
+    const earned = await env.DB.prepare("SELECT COALESCE(SUM(amount_paise),0) AS total FROM transactions WHERE user_uid=? AND type='referral' AND status IN ('approved','completed')").bind(user.uid).first();
+    const referrals = await listRows(env.DB,"SELECT a.status,a.created_at,u.email FROM referral_attributions a LEFT JOIN users u ON u.uid=a.referred_uid WHERE a.referrer_uid=? ORDER BY a.created_at DESC LIMIT 100",user.uid);
+    return response({code:own.code,invited:Number(stats.invited||0),qualified:Number(stats.qualified||0),earned_paise:Number(earned.total||0),reward_paise:10000,referrals});
+  }
+  if (path === "/user/referrals/apply" && method === "POST") {
+    const body = await bodyJson(request), code = String(body.code||"").trim().toUpperCase();
+    if (!/^[A-Z0-9]{6,24}$/.test(code)) fail("Enter a valid referral code.");
+    const owner = await env.DB.prepare("SELECT user_uid FROM referral_codes WHERE code=?").bind(code).first();
+    if (!owner) fail("Referral code not found.");
+    if (owner.user_uid === user.uid) fail("You cannot use your own referral code.");
+    const result = await env.DB.prepare("INSERT OR IGNORE INTO referral_attributions (referred_uid,referrer_uid) VALUES (?,?)").bind(user.uid,owner.user_uid).run();
+    if (!result.meta.changes) fail("A referral code has already been applied to this account.",409);
+    return response({ok:true,message:"Referral code applied. Your inviter earns ₹100 after your first approved plan purchase."});
+  }
   if (path === "/user/profile" && method === "GET") {
     const profile = await env.DB.prepare("SELECT uid,email,display_name,email_verified,status,created_at FROM users WHERE uid=?").bind(user.uid).first();
     return response({ profile, balance_paise: await balancePaise(env.DB, user.uid) });
@@ -271,8 +293,13 @@ async function handle(request, env) {
     ops.push(env.DB.prepare(`UPDATE transactions SET status=? WHERE id=? AND status='pending'
       AND EXISTS (SELECT 1 FROM payment_orders WHERE id=? AND status=?)`)
       .bind(status,tx.id,orderId,status));
+    const transactionResultIndex = ops.length - 1;
+    if (status === "approved" && order.plan_id) {
+      ops.push(env.DB.prepare("UPDATE referral_attributions SET status='rewarded', qualifying_order_id=?, rewarded_at=CURRENT_TIMESTAMP WHERE referred_uid=? AND status='pending' AND changes()=1").bind(orderId,order.user_uid));
+      ops.push(env.DB.prepare("INSERT INTO transactions (id,user_uid,type,amount_paise,status,reference) SELECT ?,referrer_uid,'referral',10000,'approved',? FROM referral_attributions WHERE referred_uid=? AND status='rewarded' AND qualifying_order_id=? AND changes()=1 AND NOT EXISTS (SELECT 1 FROM transactions WHERE reference=?)").bind(uid(),"referral:"+orderId,order.user_uid,orderId,"referral:"+orderId));
+    }
     const reviewResults = await env.DB.batch(ops);
-    if (!reviewResults[0]?.meta?.changes || !reviewResults[reviewResults.length-1]?.meta?.changes) {
+    if (!reviewResults[0]?.meta?.changes || !reviewResults[transactionResultIndex]?.meta?.changes) {
       fail("This payment was already reviewed or could not be updated. Refresh the payment list.",409);
     }
     await logAdmin(env.DB,user,"payment_"+status,"payment_order",orderId,{note});
