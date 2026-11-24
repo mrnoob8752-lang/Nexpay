@@ -96,8 +96,9 @@ async function balancePaise(db, userUid) {
       WHEN type IN ('deposit','reward','referral','adjustment') AND status IN ('approved','completed')
         AND (reference IS NULL OR reference NOT LIKE 'plan:%') THEN amount_paise
       WHEN type='withdrawal' AND status IN ('approved','completed') THEN -amount_paise
-      ELSE 0 END),0) AS balance
-    FROM transactions WHERE user_uid=?`).bind(userUid).first();
+      ELSE 0 END),0)
+    - COALESCE((SELECT SUM(amount_paise) FROM withdrawal_requests WHERE user_uid=? AND status='pending'),0) AS balance
+    FROM transactions WHERE user_uid=?`).bind(userUid,userUid).first();
   return Number(row?.balance || 0);
 }
 async function listRows(db, sql, ...args) {
@@ -168,10 +169,24 @@ async function handle(request, env) {
   }
   if (path === "/user/withdrawals" && method === "GET") {
     const rows = await listRows(env.DB, "SELECT id,amount_paise,payment_reference,status,admin_note,created_at,reviewed_at FROM withdrawal_requests WHERE user_uid=? ORDER BY created_at DESC", user.uid);
-    return response({ withdrawals: rows, enabled: false });
+    return response({ withdrawals: rows, enabled: true });
   }
   if (path === "/user/withdrawals" && method === "POST") {
-    return response({ ok: false, error: "Withdrawals are disabled until the payout workflow is configured and reviewed." }, 403);
+    const b = await bodyJson(request);
+    const amount = integer(b.amount_paise, "amount_paise", 100, 100000000);
+    const upi = String(b.upi_id || b.payment_reference || "").trim();
+    if (upi.length < 3 || upi.length > 120 || /\\s/.test(upi)) fail("Enter a valid UPI ID.");
+    const requestId = uid(), txId = uid();
+    const availableSql = "SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','reward','referral','adjustment') AND status IN ('approved','completed') AND (reference IS NULL OR reference NOT LIKE 'plan:%') THEN amount_paise WHEN type='withdrawal' AND status IN ('approved','completed') THEN -amount_paise ELSE 0 END),0) - COALESCE((SELECT SUM(amount_paise) FROM withdrawal_requests WHERE user_uid=? AND status='pending'),0) FROM transactions WHERE user_uid=?";
+    const results = await env.DB.batch([
+      env.DB.prepare("INSERT INTO withdrawal_requests (id,user_uid,amount_paise,payment_reference) SELECT ?,?,?,? WHERE ? <= (" + availableSql + ")")
+        .bind(requestId,user.uid,amount,upi,amount,user.uid,user.uid),
+      env.DB.prepare("INSERT INTO transactions (id,user_uid,type,amount_paise,status,reference) SELECT ?,?,'withdrawal',?,'pending',? WHERE EXISTS (SELECT 1 FROM withdrawal_requests WHERE id=? AND user_uid=? AND status='pending')")
+        .bind(txId,user.uid,amount,"withdrawal:"+requestId,requestId,user.uid)
+    ]);
+    if (!results[0]?.meta?.changes) fail("Insufficient available wallet balance for this withdrawal.", 409);
+    await logAdmin(env.DB,user,"withdrawal_requested","withdrawal",requestId,{amount_paise:amount});
+    return response({ok:true,request_id:requestId,transaction_id:txId,status:"pending",message:"Withdrawal request submitted. Admin will manually transfer after review."},201);
   }
 
   if (path === "/admin/users" && method === "GET") {
@@ -251,10 +266,25 @@ async function handle(request, env) {
     return response({ok:true,status});
   }
   if (path === "/admin/withdrawals" && method === "GET") {
-    return response({ withdrawals: await listRows(env.DB,`SELECT w.*,u.email FROM withdrawal_requests w LEFT JOIN users u ON u.uid=w.user_uid ORDER BY w.created_at DESC LIMIT 500`), enabled:false });
+    return response({ withdrawals: await listRows(env.DB,`SELECT w.*,u.email FROM withdrawal_requests w LEFT JOIN users u ON u.uid=w.user_uid ORDER BY w.created_at DESC LIMIT 500`), enabled:true });
   }
   if (path === "/admin/withdrawals/review" && method === "POST") {
-    return response({ok:false,error:"Withdrawal approvals are disabled until a verified payout provider and settlement workflow are configured."},403);
+    const b = await bodyJson(request);
+    const requestId = String(b.request_id || b.id || "");
+    const status = String(b.status || "");
+    const note = String(b.admin_note || "").trim().slice(0,500);
+    if (!requestId || !["paid","rejected"].includes(status)) fail("Choose a valid withdrawal request and status.");
+    const withdrawal = await env.DB.prepare("SELECT id,user_uid,amount_paise,status FROM withdrawal_requests WHERE id=?").bind(requestId).first();
+    if (!withdrawal) fail("Withdrawal request not found.",404);
+    if (withdrawal.status !== "pending") fail("This withdrawal request has already been reviewed.",409);
+    const tx = await env.DB.prepare("SELECT id FROM transactions WHERE user_uid=? AND type='withdrawal' AND reference=? AND status='pending'").bind(withdrawal.user_uid,"withdrawal:"+requestId).first();
+    if (!tx) fail("Matching pending wallet transaction was not found. No changes made.",409);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE withdrawal_requests SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(status,note || null,requestId),
+      env.DB.prepare("UPDATE transactions SET status=? WHERE id=? AND status='pending'").bind(status === "paid" ? "completed" : "rejected",tx.id)
+    ]);
+    await logAdmin(env.DB,user,"withdrawal_"+status,"withdrawal",requestId,{amount_paise:withdrawal.amount_paise,note});
+    return response({ok:true,status,message:status==="paid"?"Withdrawal marked paid; wallet balance deducted.":"Withdrawal rejected; reserved wallet balance released."});
   }
   if (path === "/admin/activity" && method === "GET") {
     return response({ activity: await listRows(env.DB,"SELECT * FROM admin_activity_logs ORDER BY created_at DESC LIMIT 300") });
