@@ -256,6 +256,9 @@ export default {
         "access-control-allow-methods":"GET, POST, OPTIONS","vary":"Origin"
       }});
     }
+    if (new URL(request.url).pathname === "/favicon.ico") {
+      return new Response(null, { status: 204, headers: { "access-control-allow-origin": allowed } });
+    }
     try {
       const result = await handle(request,env);
       const headers = new Headers(result.headers);
@@ -263,6 +266,7 @@ export default {
       headers.set("vary","Origin");
       return new Response(result.body,{status:result.status,headers});
     } catch (error) {
+      console.error("NEXPAY Worker exception:", error && error.stack ? error.stack : error);
       const status = Number(error.status) || 500;
       return response({ok:false,error:status===500?"Internal server error. Check Worker logs.":error.message,
         message:status===500?"Internal server error. Check Worker logs.":error.message},status,allowed);
