@@ -148,6 +148,8 @@ async function handle(request, env) {
     const amount = integer(b.amount_paise, "amount_paise", 1, 100000000);
     const reference = String(b.payment_reference || b.reference || "").trim();
     if (reference.length < 4 || reference.length > 120) fail("Enter a valid payment reference.");
+    const duplicate = await env.DB.prepare("SELECT id FROM payment_orders WHERE LOWER(payment_reference)=LOWER(?) LIMIT 1").bind(reference).first();
+    if (duplicate) fail("This UPI transaction reference has already been submitted. Contact admin if you believe this is an error.", 409);
     let planId = b.plan_id ? String(b.plan_id) : null;
     if (planId) {
       const plan = await env.DB.prepare("SELECT id,price_paise,status FROM plans WHERE id=?").bind(planId).first();
