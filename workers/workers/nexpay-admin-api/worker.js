@@ -268,13 +268,14 @@ export default {
     } catch (error) {
       console.error("NEXPAY Worker exception:", error && error.stack ? error.stack : error);
       const status = Number(error.status) || 500;
-      const isHealth = new URL(request.url).pathname === "/health";
+      const requestPath = new URL(request.url).pathname;
+      const isDiagnosticRequest = requestPath === "/health" || requestPath.startsWith("/user/");
       const safeMessage = status === 500 ? "Internal server error. Check Worker logs." : error.message;
       return response({
         ok: false,
         error: safeMessage,
         message: safeMessage,
-        ...(isHealth && status === 500 ? { diagnostic: String(error && error.message || "Unknown error").slice(0, 240) } : {})
+        ...(isDiagnosticRequest && status === 500 ? { diagnostic: String(error && error.message || "Unknown error").slice(0, 240) } : {})
       }, status, allowed);
     }
   }
