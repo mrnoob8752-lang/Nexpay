@@ -1,0 +1,13 @@
+{
+  "name": "nexpay-admin-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-24",
+  "keep_vars": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nexpay-db",
+      "database_id": "6d9ed741-d9cd-4816-94d1-01e70c80e4f2"
+    }
+  ]
+}
