@@ -138,6 +138,8 @@ async function handle(request, env) {
     const owner = await env.DB.prepare("SELECT user_uid FROM referral_codes WHERE code=?").bind(code).first();
     if (!owner) fail("Referral code not found.");
     if (owner.user_uid === user.uid) fail("You cannot use your own referral code.");
+    const priorPlanPurchase = await env.DB.prepare("SELECT id FROM payment_orders WHERE user_uid=? AND plan_id IS NOT NULL AND status='approved' LIMIT 1").bind(user.uid).first();
+    if (priorPlanPurchase) fail("Referral codes must be applied before your first approved plan purchase.",409);
     const result = await env.DB.prepare("INSERT OR IGNORE INTO referral_attributions (referred_uid,referrer_uid) VALUES (?,?)").bind(user.uid,owner.user_uid).run();
     if (!result.meta.changes) fail("A referral code has already been applied to this account.",409);
     return response({ok:true,message:"Referral code applied. Your inviter earns ₹100 after your first approved plan purchase."});
