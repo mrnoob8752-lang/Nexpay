@@ -342,10 +342,16 @@ async function handle(request, env) {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("origin") || "";
-    const allowed = env.APP_ORIGIN || "https://nexpay.pruthvirajavhad55.workers.dev";
+    const configuredOrigins = (env.APP_ORIGIN || "https://nexpay.pruthvirajavhad55.workers.dev")
+      .split(",").map(value => value.trim()).filter(Boolean);
+    const allowedOrigins = [...new Set([
+      ...configuredOrigins,
+      "https://nexpay-app.pages.dev"
+    ])];
+    const allowed = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
     if (request.method === "OPTIONS") {
       return new Response(null,{status:204,headers:{
-        "access-control-allow-origin":origin===allowed?allowed:allowed,
+        "access-control-allow-origin":allowed,
         "access-control-allow-headers":"Authorization, Content-Type",
         "access-control-allow-methods":"GET, POST, OPTIONS","vary":"Origin"
       }});
