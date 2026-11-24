@@ -212,6 +212,16 @@ async function handle(request, env) {
   if (path === "/admin/transactions" && method === "GET") {
     return response({ transactions: await listRows(env.DB,`SELECT t.*,u.email FROM transactions t LEFT JOIN users u ON u.uid=t.user_uid ORDER BY t.created_at DESC LIMIT 500`) });
   }
+  if (path === "/admin/payments" && method === "GET") {
+    const payments = await listRows(env.DB, `SELECT po.id,po.user_uid,po.plan_id,po.amount_paise,
+      po.payment_reference,po.status,po.admin_note,po.created_at,po.reviewed_at,
+      u.email,p.name AS plan_name
+      FROM payment_orders po
+      LEFT JOIN users u ON u.uid=po.user_uid
+      LEFT JOIN plans p ON p.id=po.plan_id
+      ORDER BY po.created_at DESC LIMIT 500`);
+    return response({ payments });
+  }
   if (path === "/admin/payments/review" && method === "POST") {
     const b = await bodyJson(request), orderId = String(b.order_id || b.id || "");
     const status = String(b.status || (b.approve === true ? "approved" : b.approve === false ? "rejected" : ""));
