@@ -175,7 +175,7 @@ async function handle(request, env) {
     const b = await bodyJson(request);
     const amount = integer(b.amount_paise, "amount_paise", 100, 100000000);
     const upi = String(b.upi_id || b.payment_reference || "").trim();
-    if (upi.length < 3 || upi.length > 120 || /\\s/.test(upi)) fail("Enter a valid UPI ID.");
+    if (upi.length < 3 || upi.length > 120 || !upi.includes("@") || upi.includes(" ")) fail("Enter a valid UPI ID.");
     const requestId = uid(), txId = uid();
     const availableSql = "SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','reward','referral','adjustment') AND status IN ('approved','completed') AND (reference IS NULL OR reference NOT LIKE 'plan:%') THEN amount_paise WHEN type='withdrawal' AND status IN ('approved','completed') THEN -amount_paise ELSE 0 END),0) - COALESCE((SELECT SUM(amount_paise) FROM withdrawal_requests WHERE user_uid=? AND status='pending'),0) FROM transactions WHERE user_uid=?";
     const results = await env.DB.batch([
@@ -185,7 +185,6 @@ async function handle(request, env) {
         .bind(txId,user.uid,amount,"withdrawal:"+requestId,requestId,user.uid)
     ]);
     if (!results[0]?.meta?.changes) fail("Insufficient available wallet balance for this withdrawal.", 409);
-    await logAdmin(env.DB,user,"withdrawal_requested","withdrawal",requestId,{amount_paise:amount});
     return response({ok:true,request_id:requestId,transaction_id:txId,status:"pending",message:"Withdrawal request submitted. Admin will manually transfer after review."},201);
   }
 
