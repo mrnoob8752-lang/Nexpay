@@ -4,9 +4,13 @@
  *
  * Required Worker bindings:
  *   DB (D1 database: nexpay-db)
- * Required variables/secrets:
- *   FIREBASE_API_KEY (text variable)
- *   ADMIN_UID (secret)
+ * Required Worker secret:
+ *   FIREBASE_API_KEY
+ * Required Worker secret:
+ *   ADMIN_UID
+ * Required Worker variables:
+ *   UPI_ID
+ *   UPI_QR_URL
  * Optional variable:
  *   APP_ORIGIN = https://nexpay.pruthvirajavhad55.workers.dev
  *
@@ -268,14 +272,11 @@ export default {
     } catch (error) {
       console.error("NEXPAY Worker exception:", error && error.stack ? error.stack : error);
       const status = Number(error.status) || 500;
-      const requestPath = new URL(request.url).pathname;
-      const isDiagnosticRequest = requestPath === "/health" || requestPath.startsWith("/user/");
       const safeMessage = status === 500 ? "Internal server error. Check Worker logs." : error.message;
       return response({
         ok: false,
         error: safeMessage,
-        message: safeMessage,
-        ...(isDiagnosticRequest && status === 500 ? { diagnostic: String(error && error.message || "Unknown error").slice(0, 240) } : {})
+        message: safeMessage
       }, status, allowed);
     }
   }
